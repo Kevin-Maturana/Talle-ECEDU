@@ -7,14 +7,13 @@ const json = (o, status) => new Response(JSON.stringify(o), { status: status || 
 export class Taller extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
-    this.clave = String(env.DOCENTE_CLAVE || '');
-    this.hub = Hub.create(CONTENT.steps, { clave: this.clave || 'sin-clave-configurada' });
+    this.hub = Hub.create(CONTENT.steps, { clave: 'interna' });
   }
   async fetch(request) {
     const path = new URL(request.url).pathname.replace(/^\/api\//, '');
     let b = {};
     try { b = await request.json(); } catch (e) { /* sin cuerpo */ }
-    const h = this.hub, now = Date.now();
+    const h = this.hub, now = Date.now(), clave = String(this.env.DOCENTE_CLAVE || '').trim();
     switch (path) {
       case 'join': return json(h.join({ name: b.name, lic: b.lic, av: b.av, claim: !!b.claim }));
       case 'view': return json({ view: h.view(String(b.id || '')), now });
@@ -22,9 +21,9 @@ export class Taller extends DurableObject {
       case 'react': return json(h.react(String(b.id || ''), String(b.k || '')));
       case 'adminview':
       case 'admin': {
-        if (!this.clave || b.clave !== this.clave) return json({ ok: false }, 401);
+        if (!clave || String(b.clave || '').trim() !== clave) return json({ ok: false }, 401);
         if (path === 'adminview') return json({ view: h.adminView(), now });
-        const p = Object.assign({}, b.p || {}, { clave: this.clave });
+        const p = Object.assign({}, b.p || {}, { clave: 'interna' });
         return json(h.admin(String(b.a || ''), p));
       }
       default: return json({ ok: false }, 404);
