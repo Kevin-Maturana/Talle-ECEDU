@@ -56,18 +56,20 @@
   function dataOf(users, id) { const out = []; users.forEach(u => { const a = u.answers[id]; if (a && Number.isFinite(Number(a.v))) out.push(Number(a.v)); }); return out.sort((x, y) => x - y); }
 
   /* ---------- pasos que se calculan con los datos del grupo ---------- */
-  const FALLBACK = [3, 5, 6, 8, 9, 10, 10, 12, 14, 15, 18, 20, 22, 40];
+  /* Con menos de 4 datos reales se usa un grupo de ejemplo al azar (y se le dice al participante). */
+  const sample = () => { const n = 9 + Math.floor(Math.random() * 5), out = []; for (let i = 0; i < n; i++) out.push(3 + Math.floor(Math.random() * 28)); out[0] = 40 + Math.floor(Math.random() * 15); return out.sort((x, y) => x - y); };
   const tpl = (str, v) => String(str).replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
   function groupVars(data) {
-    const a = data.length >= 4 ? data.slice().sort((x, y) => x - y) : FALLBACK.slice(), sm = Stats.summary(a), f = Stats.fmt;
+    const a = data.length >= 4 ? data.slice().sort((x, y) => x - y) : sample(), sm = Stats.summary(a), f = Stats.fmt;
     const within = a.filter(v => Math.abs(v - sm.mean) <= sm.sdS).length;
     const v = { n: a.length, sum: f(Stats.sum(a), 1), mean: f(sm.mean, 1), median: f(sm.median, 1), sd: f(sm.sdS, 1), range: f(sm.range, 1), min: f(sm.min, 1), max: f(sm.max, 1), q1: f(sm.q1, 1), q3: f(sm.q3, 1), iqr: f(sm.iqr, 1), fHi: f(sm.fHi, 1), nout: sm.outliers.length, outs: sm.outliers.map(x => f(x, 0)).join(', '), outtxt: sm.outliers.length === 0 ? 'sin valores atípicos' : sm.outliers.length === 1 ? 'un valor atípico: ' + f(sm.outliers[0], 0) : sm.outliers.length + ' valores atípicos: ' + sm.outliers.map(x => f(x, 0)).join(', '), within, pct: Math.round(100 * within / a.length), diff: f(Math.abs(sm.mean - sm.median), 1) };
     return { a, sm, v, fallback: data.length < 4 };
   }
   function resolve(s, data) {
     if (!s.calc) return s;
-    const { a, sm, v } = groupVars(data), o = Object.assign({}, s), T = x => (typeof x === 'string' ? tpl(x, v) : x);
+    const { a, sm, v, fallback } = groupVars(data), o = Object.assign({}, s), T = x => (typeof x === 'string' ? tpl(x, v) : x);
     ['prompt', 'context', 'exp', 'unit', 'hint'].forEach(k => { if (o[k]) o[k] = T(o[k]); });
+    if (fallback && ['number', 'choice', 'balance'].includes(s.kind)) o.context = 'Aún hay pocos datos del grupo; usamos este grupo de ejemplo: ' + a.map(x => Stats.fmt(x, 0)).join(', ') + '. ' + (o.context || '');
     const lo = s.domain ? s.domain[0] : 0;
     o.domain = [lo, Math.max(s.domain ? s.domain[1] : 0, Math.ceil(sm.max / 5) * 5)];
     if (s.kind === 'balance') { o.values = a.slice(); o.start = Math.round(o.domain[1] * 0.85); o.tilt = true; }
@@ -131,7 +133,7 @@
       byLic: users.reduce((m, u) => { if (u.lic) m[u.lic] = (m[u.lic] || 0) + 1; return m; }, {}),
       people: users.slice(-120).map(u => ({ id: u.id, n: u.name, av: u.av, a: cur ? !!u.answers[cur.id] : false })),
       clouds: {}, data: {}, texts: {}, dist: null, fastest: null,
-      react: countReacts(reacts, now), at: now
+      react: countReacts(reacts, now, state.step), at: now
     };
     steps.forEach((s, i) => {
       if (i > idx) return;
@@ -166,9 +168,9 @@
     }
     return view;
   }
-  function countReacts(reacts, now) {
+  function countReacts(reacts, now, step) {
     const c = { ok: 0, wow: 0, ask: 0, slow: 0 }, seen = {};
-    (reacts || []).forEach(r => { if (now - r.t <= 25000) { const key = r.id + r.k; if (seen[key]) return; seen[key] = 1; if (c[r.k] !== undefined) c[r.k]++; } });
+    (reacts || []).forEach(r => { if (r.s !== undefined ? r.s === step : now - r.t <= 25000) { const key = r.id + r.k; if (seen[key]) return; seen[key] = 1; if (c[r.k] !== undefined) c[r.k]++; } });
     return c;
   }
   return { build, resolve, groupVars, dataOf, publicStep, grade, speedBonus, isScored, visible, scoreUser, rankRows, normWord, cleanWord, PARTICIPATION, REACT_PTS };

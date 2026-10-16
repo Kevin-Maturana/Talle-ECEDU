@@ -68,8 +68,8 @@
       const u = users.get(id); if (!u || !['ok', 'wow', 'ask', 'slow'].includes(k)) return { ok: false };
       const t = Date.now(); if (t - u.lastReact < 500) return { ok: true };
       const cs = cur(); if (cs && cs.kind === 'concept' && !u.answers[cs.id]) u.answers[cs.id] = { v: k, t: t - state.openedAt };
-      u.lastReact = t; reacts.push({ eid: ++eid, k, id, t, n: u.name, av: u.av });
-      reacts = reacts.filter(r => t - r.t < 30000).slice(-200);
+      u.lastReact = t; reacts.push({ eid: ++eid, k, id, t, n: u.name, av: u.av, s: state.step });
+      reacts = reacts.filter(r => r.s === state.step || t - r.t < 30000).slice(-1500);
       emit(); return { ok: true };
     }
     const view = id => (users.has(id) || !id) ? Engine.build({ steps: eff(), state: { ...state }, users: list(), reacts, now: Date.now(), forId: id }) : null;
