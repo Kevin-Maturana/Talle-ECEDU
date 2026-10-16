@@ -6,7 +6,8 @@
 })(typeof self !== 'undefined' ? self : this, function (Stats) {
   const SCORED = { choice: 1, number: 1, balance: 1, tap: 1 };
   const isScored = s => !!(s && SCORED[s.kind]);
-  const PARTICIPATION = 20;
+  const PARTICIPATION = 40, REACT_PTS = 10, LONG_TEXT = 60, LONG_BONUS = 20;
+  const textPts = a => PARTICIPATION + (typeof a.v === 'string' && a.v.length >= LONG_TEXT ? LONG_BONUS : 0);
 
   function grade(s, v) {
     if (s.kind === 'choice' || s.kind === 'tap') return Number(v) === s.ok;
@@ -33,7 +34,8 @@
           per[s.id] = { ok: true, base: 100, speed: a.sp, streak: bonus, pts: 100 + a.sp + bonus };
         } else { streak = 0; per[s.id] = { ok: false, base: 0, speed: 0, streak: 0, pts: 0 }; }
         pts += per[s.id].pts;
-      } else if (a && (s.kind === 'cloud' || s.kind === 'datum' || s.kind === 'text')) { pts += PARTICIPATION; voice++; per[s.id] = { ok: null, pts: PARTICIPATION }; }
+      } else if (a && (s.kind === 'cloud' || s.kind === 'datum' || s.kind === 'text')) { const g = s.kind === 'text' ? textPts(a) : PARTICIPATION; pts += g; voice++; per[s.id] = { ok: null, pts: g }; }
+      else if (a && s.kind === 'concept') { pts += REACT_PTS; per[s.id] = { ok: null, pts: REACT_PTS }; }
     });
     return { pts, streak, best, correct, answered, scoredSeen, voice, per };
   }
@@ -169,5 +171,5 @@
     (reacts || []).forEach(r => { if (now - r.t <= 25000) { const key = r.id + r.k; if (seen[key]) return; seen[key] = 1; if (c[r.k] !== undefined) c[r.k]++; } });
     return c;
   }
-  return { build, resolve, groupVars, dataOf, publicStep, grade, speedBonus, isScored, visible, scoreUser, rankRows, normWord, cleanWord, PARTICIPATION };
+  return { build, resolve, groupVars, dataOf, publicStep, grade, speedBonus, isScored, visible, scoreUser, rankRows, normWord, cleanWord, PARTICIPATION, REACT_PTS };
 });

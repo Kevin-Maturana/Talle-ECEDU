@@ -8,6 +8,18 @@ export class Taller extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.hub = Hub.create(CONTENT.steps, { clave: 'interna' });
+    this.timer = null;
+    ctx.blockConcurrencyWhile(async () => {
+      try { const sn = await ctx.storage.get('sala'); if (sn) this.hub.restore(sn); } catch (e) { /* arranca vacía */ }
+    });
+    this.hub.subscribe(() => this.guardar());
+  }
+  guardar() {
+    if (this.timer) return;
+    this.timer = setTimeout(async () => {
+      this.timer = null;
+      try { await this.ctx.storage.put('sala', this.hub.snapshot()); } catch (e) { /* se reintenta en el próximo cambio */ }
+    }, 1500);
   }
   async fetch(request) {
     const path = new URL(request.url).pathname.replace(/^\/api\//, '');

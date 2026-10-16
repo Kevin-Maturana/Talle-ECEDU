@@ -67,6 +67,7 @@
     function react(id, k) {
       const u = users.get(id); if (!u || !['ok', 'wow', 'ask', 'slow'].includes(k)) return { ok: false };
       const t = Date.now(); if (t - u.lastReact < 500) return { ok: true };
+      const cs = cur(); if (cs && cs.kind === 'concept' && !u.answers[cs.id]) u.answers[cs.id] = { v: k, t: t - state.openedAt };
       u.lastReact = t; reacts.push({ eid: ++eid, k, id, t, n: u.name, av: u.av });
       reacts = reacts.filter(r => t - r.t < 30000).slice(-200);
       emit(); return { ok: true };
@@ -160,7 +161,14 @@
       });
       if (s.kind === 'concept' && Math.random() < 0.35) { const b = pick(list().filter(u => u.bot) || []); if (b) react(b.id, pick(['ok', 'ok', 'ok', 'wow', 'ask', 'ok', 'slow'])); }
     }
-    return { state, steps, join, answer, react, view, adminView, admin, addBots, removeBots, botsOn, subscribe: f => { subs.add(f); return () => subs.delete(f); }, clave: CLAVE, now: () => Date.now() };
+    function snapshot() { return { state: Object.assign({}, state), users: list(), resolved: Array.from(resolved.entries()), seen: Array.from(seen), seq, eid }; }
+    function restore(sn) {
+      if (!sn || !sn.state) return false;
+      Object.assign(state, sn.state); users.clear(); (sn.users || []).forEach(u => users.set(u.id, u));
+      resolved.clear(); (sn.resolved || []).forEach(([k, v]) => resolved.set(k, v)); seen.clear(); (sn.seen || []).forEach(i => seen.add(i));
+      seq = sn.seq || 0; eid = sn.eid || 0; state.v++; return true;
+    }
+    return { snapshot, restore, state, steps, join, answer, react, view, adminView, admin, addBots, removeBots, botsOn, subscribe: f => { subs.add(f); return () => subs.delete(f); }, clave: CLAVE, now: () => Date.now() };
   }
   return { create };
 });
